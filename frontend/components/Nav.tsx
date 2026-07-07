@@ -34,7 +34,7 @@ export function Nav() {
     <>
       <header
         className="sticky top-0 z-40 backdrop-blur-md"
-        style={{ background: "rgba(10,12,11,0.82)", borderBottom: "1px solid var(--line)" }}
+        style={{ background: "rgba(255,255,255,0.88)", borderBottom: "1px solid var(--line)" }}
       >
         <nav className="mx-auto max-w-6xl px-5 h-[62px] flex items-center gap-4">
           <Link href="/" className="hover:opacity-80 transition-opacity shrink-0">

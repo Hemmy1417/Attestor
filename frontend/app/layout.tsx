@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -8,7 +8,7 @@ import { Backdrop } from "@/components/Backdrop";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import { CONTRACT_ADDRESS, explorerAddressUrl } from "@/lib/config";
 
-const sans = Space_Grotesk({ subsets: ["latin"], variable: "--font-sans" });
+const sans = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {

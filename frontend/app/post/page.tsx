@@ -109,7 +109,7 @@ export default function PostJobPage() {
             <button
               className="btn flex-1"
               style={openBounty
-                ? { background: "var(--lime)", color: "#0a0c0b" }
+                ? { background: "var(--lime)", color: "#ffffff" }
                 : { background: "transparent", color: "var(--ink)", border: "1px solid var(--line-hi)" }}
               onClick={() => setOpenBounty(true)} disabled={isPosting}
             >
@@ -118,7 +118,7 @@ export default function PostJobPage() {
             <button
               className="btn flex-1"
               style={!openBounty
-                ? { background: "var(--lime)", color: "#0a0c0b" }
+                ? { background: "var(--lime)", color: "#ffffff" }
                 : { background: "transparent", color: "var(--ink)", border: "1px solid var(--line-hi)" }}
               onClick={() => setOpenBounty(false)} disabled={isPosting}
             >

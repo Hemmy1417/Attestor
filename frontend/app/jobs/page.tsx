@@ -48,7 +48,7 @@ export default function JobsPage() {
             className="chip transition-colors"
             style={
               filter === f.key
-                ? { background: "var(--lime)", color: "#0a0c0b" }
+                ? { background: "var(--lime)", color: "#ffffff" }
                 : { background: "var(--tray)", color: "var(--muted)", border: "1px solid var(--line-hi)" }
             }
           >
