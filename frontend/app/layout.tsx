@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
+import { Syne, Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -8,7 +8,8 @@ import { Backdrop } from "@/components/Backdrop";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import { CONTRACT_ADDRESS, explorerAddressUrl } from "@/lib/config";
 
-const sans = Space_Grotesk({ subsets: ["latin"], variable: "--font-sans" });
+const display = Syne({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-display" });
+const sans = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body className="min-h-screen">
         <Providers>
           <Backdrop />
