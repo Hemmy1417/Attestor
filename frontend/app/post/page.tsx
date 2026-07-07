@@ -51,7 +51,7 @@ export default function PostJobPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-12 space-y-8">
+    <div className="px-6 lg:px-10 py-8 max-w-3xl space-y-8">
       <div>
         <div className="eyebrow mb-1">Lock the bounty, set the criteria</div>
         <h1 className="display text-4xl text-ink">Post a job</h1>

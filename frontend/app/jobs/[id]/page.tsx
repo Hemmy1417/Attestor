@@ -23,14 +23,14 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-3xl px-5 py-24 flex justify-center">
+      <div className="px-6 lg:px-10 py-24 max-w-3xl flex justify-center">
         <Loader2 className="w-6 h-6 animate-spin" style={{ color: "var(--lime)" }} />
       </div>
     );
   }
   if (!job) {
     return (
-      <div className="mx-auto max-w-3xl px-5 py-24 text-center">
+      <div className="px-6 lg:px-10 py-24 max-w-3xl text-center">
         <p className="text-soft">Job not found.</p>
         <Link href="/jobs" className="btn btn-ghost mt-4 inline-flex">Back to the board</Link>
       </div>
@@ -47,7 +47,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
   const canCancel = isClient && job.status === "OPEN";
 
   return (
-    <div className="mx-auto max-w-3xl px-5 py-12 space-y-6">
+    <div className="px-6 lg:px-10 py-8 max-w-3xl space-y-6">
       {/* Header */}
       <div className={job.status === "SETTLED" ? "card-lit p-7" : "card p-7"}>
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -75,7 +75,7 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
           </div>
         </div>
 
-        <div className="mt-5 rounded-md p-4" style={{ background: "var(--lime-soft)", border: "1px solid rgba(182,243,106,0.2)" }}>
+        <div className="mt-5 rounded-md p-4" style={{ background: "var(--lime-soft)", border: "1px solid rgba(139,92,246,0.25)" }}>
           <div className="eyebrow mb-1">Acceptance criteria</div>
           <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--ink)" }}>
             {job.proof_criteria}

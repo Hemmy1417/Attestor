@@ -21,26 +21,25 @@ export default function HomePage() {
   const open = (jobs ?? []).filter((j) => j.status === "OPEN");
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-12 space-y-12">
+    <div className="px-6 lg:px-10 py-8 max-w-6xl space-y-12">
       {/* Hero */}
-      <section className="text-center pt-8 pb-4">
+      <section className="pt-4 pb-2">
         <div
-          className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 mb-6 text-xs font-bold mono"
-          style={{ background: "var(--lime-soft)", color: "var(--lime)", border: "1px solid rgba(182,243,106,0.25)" }}
+          className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 mb-5 text-xs font-medium mono"
+          style={{ background: "var(--lime-soft)", color: "#b9a3ff", border: "1px solid rgba(139,92,246,0.3)" }}
         >
           <Eye className="w-3.5 h-3.5" />
           VISION-JUDGED · GENLAYER STUDIONET
         </div>
-        <h1 className="display text-5xl sm:text-6xl leading-[1.05] text-ink max-w-3xl mx-auto">
+        <h1 className="display text-4xl sm:text-5xl leading-[1.06] text-ink max-w-2xl">
           Proof of completion you can <span style={{ color: "var(--lime)" }}>see</span>
         </h1>
-        <p className="text-lg text-soft max-w-2xl mx-auto mt-5 leading-relaxed">
+        <p className="text-base text-soft max-w-xl mt-4 leading-relaxed">
           Lock GEN against acceptance criteria. A worker submits a photo as
           proof. A GenLayer vision panel looks at the image, confirms it meets
-          the criteria, and releases payment — or spends an attempt. No
-          trusted middleman, no manual sign-off.
+          the criteria, and releases payment — or spends an attempt.
         </p>
-        <div className="flex items-center justify-center gap-3 mt-8">
+        <div className="flex items-center gap-3 mt-6">
           <Link href="/jobs" className="btn btn-primary">
             Browse jobs <ArrowRight className="w-4 h-4" />
           </Link>

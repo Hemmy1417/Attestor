@@ -14,7 +14,7 @@ export default function WorkPage() {
 
   if (!isConnected) {
     return (
-      <div className="mx-auto max-w-4xl px-5 py-24 text-center">
+      <div className="px-6 lg:px-10 py-24 max-w-4xl text-center">
         <Briefcase className="w-10 h-10 mx-auto mb-3 text-muted opacity-40" />
         <p className="text-soft">Connect a wallet to see your work.</p>
       </div>
@@ -22,7 +22,7 @@ export default function WorkPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-5 py-12 space-y-10">
+    <div className="px-6 lg:px-10 py-8 max-w-4xl space-y-10">
       <div>
         <div className="eyebrow mb-1">Jobs you posted and worked</div>
         <h1 className="display text-4xl text-ink">My work</h1>

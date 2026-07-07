@@ -1,26 +1,27 @@
 @import "tailwindcss";
 
-/* ── Attestor design system — Upwork-style: clean, white, confident green ──
-   White canvas, Upwork green primary (#14a800), dark green-black ink, soft
-   rounded cards and pill buttons, generous whitespace. Reads like a
-   trusted freelance marketplace. */
+/* ── Attestor design system — "qintara": premium black + violet glow ──
+   Pure-black cinematic canvas, elegant white grotesk display, monospace
+   gray subtext, a violet→magenta accent glow, halftone dot texture, and
+   clean pill buttons (white primary). High contrast, spacious. */
 
 :root {
-  --canvas:      #ffffff;   /* page background */
-  --void:        #f7faf7;   /* inset fields / subtle panels */
-  --tray:        #ffffff;   /* card surface */
-  --tray-hi:     #f2f7f2;   /* raised / hover surface */
-  --ink:         #001e00;   /* Upwork near-black green */
-  --ink-soft:    #5e6d55;
-  --muted:       #8a9685;
-  --lime:        #14a800;   /* Upwork green — the primary signal */
-  --lime-deep:   #108a00;
-  --lime-soft:   rgba(20,168,0,0.10);
-  --amber:       #b26a00;
-  --red:         #d0021b;
-  --red-soft:    rgba(208,2,27,0.08);
-  --line:        #e4ebe4;
-  --line-hi:     #d5e0d5;
+  --canvas:      #060608;   /* page background */
+  --void:        #0f0f13;   /* inset fields / subtle panels */
+  --tray:        #0d0d11;   /* card surface */
+  --tray-hi:     #16161c;   /* raised / hover surface */
+  --ink:         #f4f4f7;   /* white ink */
+  --ink-soft:    #9a9aa6;
+  --muted:       #62626d;
+  --lime:        #8b5cf6;   /* violet — the accent / verified signal */
+  --lime-deep:   #7c3aed;
+  --lime-soft:   rgba(139,92,246,0.14);
+  --magenta:     #c026d3;
+  --amber:       #e0a15a;
+  --red:         #ff5c72;
+  --red-soft:    rgba(255,92,114,0.12);
+  --line:        #212127;
+  --line-hi:     #33333d;
 }
 
 html { background: var(--canvas); }
@@ -32,15 +33,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.display { font-family: var(--font-sans), system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
+.display { font-family: var(--font-sans), system-ui, sans-serif; font-weight: 500; letter-spacing: -0.025em; }
 .mono    { font-family: var(--font-mono), ui-monospace, monospace; }
 
 .eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--lime-deep);
+  color: var(--ink-soft);
 }
 
 .text-ink   { color: var(--ink); }
@@ -51,24 +53,24 @@ body {
 .card {
   background: var(--tray);
   border: 1px solid var(--line);
-  border-radius: 14px;
-  transition: box-shadow 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+  border-radius: 16px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 .card-hover:hover {
   border-color: var(--line-hi);
-  box-shadow: 0 6px 20px -8px rgba(0,30,0,0.14);
+  box-shadow: 0 12px 40px -16px rgba(139,92,246,0.35);
   transform: translateY(-2px);
 }
 .card-lit {
   background: var(--tray);
-  border: 1px solid var(--lime);
-  box-shadow: 0 0 0 1px var(--lime-soft), 0 8px 24px -12px rgba(20,168,0,0.35);
-  border-radius: 14px;
+  border: 1px solid var(--lime-deep);
+  box-shadow: 0 0 0 1px var(--lime-soft), 0 0 60px -18px rgba(139,92,246,0.6);
+  border-radius: 16px;
 }
 
 .hairline { height: 1px; background: var(--line); }
 
-/* Buttons — Upwork pills */
+/* Buttons — pills; primary is the white "Get started" chip */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -77,31 +79,31 @@ body {
   height: 46px;
   padding: 0 26px;
   border-radius: 9999px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease, box-shadow 0.2s ease;
   white-space: nowrap;
 }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .btn-primary {
-  background: var(--lime);
-  color: #ffffff;
+  background: #f4f4f7;
+  color: #060608;
 }
-.btn-primary:hover:not(:disabled) { background: var(--lime-deep); }
+.btn-primary:hover:not(:disabled) { background: #ffffff; box-shadow: 0 0 24px -6px rgba(255,255,255,0.4); }
 
 .btn-ghost {
-  background: transparent;
-  color: var(--lime-deep);
-  border: 1px solid var(--lime-deep);
+  background: rgba(255,255,255,0.04);
+  color: var(--ink);
+  border: 1px solid var(--line-hi);
 }
-.btn-ghost:hover:not(:disabled) { background: var(--lime-soft); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--lime); color: var(--lime); }
 
 .btn-danger {
   background: transparent;
   color: var(--red);
-  border: 1px solid rgba(208,2,27,0.4);
+  border: 1px solid rgba(255,92,114,0.35);
 }
 .btn-danger:hover:not(:disabled) { background: var(--red-soft); }
 
@@ -113,25 +115,25 @@ body {
   height: 26px;
   padding: 0 12px;
   border-radius: 9999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.03em;
 }
-.chip-open      { background: var(--lime-soft);  color: var(--lime-deep); }
+.chip-open      { background: var(--lime-soft);  color: #b9a3ff; border: 1px solid rgba(139,92,246,0.3); }
 .chip-settled   { background: var(--lime); color: #ffffff; }
-.chip-cancelled { background: #eef1ee;  color: var(--muted); }
-.chip-verified  { background: var(--lime); color: #ffffff; }
-.chip-rejected  { background: var(--red-soft); color: var(--red); }
-.chip-open-bounty { background: rgba(178,106,0,0.10); color: var(--amber); }
+.chip-cancelled { background: rgba(255,255,255,0.06);  color: var(--muted); }
+.chip-verified  { background: linear-gradient(90deg, var(--lime), var(--magenta)); color: #ffffff; }
+.chip-rejected  { background: var(--red-soft); color: var(--red); border: 1px solid rgba(255,92,114,0.3); }
+.chip-open-bounty { background: rgba(224,161,90,0.12); color: var(--amber); border: 1px solid rgba(224,161,90,0.3); }
 
 /* Inputs */
 .input {
   width: 100%;
-  background: var(--canvas);
+  background: var(--void);
   border: 1px solid var(--line-hi);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 12px 15px;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--ink);
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -158,6 +160,11 @@ label.field-label {
 
 @keyframes slide-in { from { transform: translateX(20px); opacity: 0 } to { transform: none; opacity: 1 } }
 .animate-slide-in { animation: slide-in 0.22s ease both; }
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.9; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-in, .animate-slide-in { animation: none; }

@@ -32,26 +32,27 @@ export function Nav() {
 
   return (
     <>
-      <header
-        className="sticky top-0 z-40 backdrop-blur-md"
-        style={{ background: "rgba(255,255,255,0.88)", borderBottom: "1px solid var(--line)" }}
-      >
-        <nav className="mx-auto max-w-6xl px-5 h-[62px] flex items-center gap-4">
+      <header className="sticky top-0 z-40">
+        <nav className="mx-auto max-w-6xl px-5 h-[72px] flex items-center gap-4">
           <Link href="/" className="hover:opacity-80 transition-opacity shrink-0">
             <AttestorWordmark size="sm" />
           </Link>
 
-          <div className="hidden md:flex items-center gap-1 ml-auto">
+          {/* floating pill nav — echoes the reference's glass capsule */}
+          <div
+            className="hidden md:flex items-center gap-1 ml-auto rounded-full px-1.5 py-1.5 backdrop-blur-md"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--line)" }}
+          >
             {links.map((l) => {
               const active = isActive(l.href);
               return (
                 <Link
                   key={l.href}
                   href={l.href}
-                  className="text-sm font-semibold px-3.5 py-2 rounded-md transition-colors mono"
+                  className="text-sm font-medium px-4 py-1.5 rounded-full transition-colors"
                   style={{
-                    color: active ? "var(--lime)" : "var(--ink-soft)",
-                    background: active ? "var(--lime-soft)" : "transparent",
+                    color: active ? "var(--ink)" : "var(--ink-soft)",
+                    background: active ? "rgba(255,255,255,0.10)" : "transparent",
                   }}
                 >
                   {l.label}

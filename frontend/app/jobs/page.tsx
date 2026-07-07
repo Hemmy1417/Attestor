@@ -22,7 +22,7 @@ export default function JobsPage() {
   const list = (jobs ?? []).filter((j) => filter === "all" || j.status === filter);
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-12 space-y-8">
+    <div className="px-6 lg:px-10 py-8 max-w-6xl space-y-8">
       <div>
         <div className="eyebrow mb-1">Every job, public</div>
         <h1 className="display text-4xl text-ink">The job board</h1>

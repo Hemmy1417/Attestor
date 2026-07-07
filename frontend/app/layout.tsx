@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 import { Providers } from "./providers";
-import { Nav } from "@/components/Nav";
+import { Sidebar } from "@/components/Sidebar";
 import { Backdrop } from "@/components/Backdrop";
 import { NetworkBanner } from "@/components/NetworkBanner";
 import { CONTRACT_ADDRESS, explorerAddressUrl } from "@/lib/config";
 
-const sans = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const sans = Space_Grotesk({ subsets: ["latin"], variable: "--font-sans" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
@@ -20,18 +20,18 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
-      <body className="min-h-screen flex flex-col">
+      <body className="min-h-screen">
         <Providers>
           <Backdrop />
-          <NetworkBanner />
-          <Nav />
-          <main className="flex-1">{children}</main>
-          <footer style={{ borderTop: "1px solid var(--line)" }}>
-            <div className="mx-auto max-w-6xl px-5 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted">
-              <span className="mono">
-                Attestor — every ruling is a public, verifiable GenLayer transaction.
-              </span>
-              <span className="flex items-center gap-4">
+          <Sidebar />
+          <div className="md:ml-64 min-h-screen flex flex-col">
+            <NetworkBanner />
+            <main className="flex-1">{children}</main>
+            <footer style={{ borderTop: "1px solid var(--line)" }}>
+              <div className="px-6 lg:px-10 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted">
+                <span className="mono">
+                  Every ruling is a public, verifiable GenLayer transaction.
+                </span>
                 <Link
                   href={explorerAddressUrl(CONTRACT_ADDRESS)}
                   target="_blank"
@@ -40,10 +40,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 >
                   Contract on explorer ↗
                 </Link>
-                <span className="mono">Studionet</span>
-              </span>
-            </div>
-          </footer>
+              </div>
+            </footer>
+          </div>
         </Providers>
       </body>
     </html>
