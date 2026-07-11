@@ -78,6 +78,17 @@ export function useMyClientJobs() {
   });
 }
 
+// The bond a proof attempt on this job requires (1% of escrow, min 0.01 GEN).
+export function useSubmissionBond(jobId: string | null) {
+  const contract = useAttestorContract();
+  return useQuery<bigint, Error>({
+    queryKey: ["submissionBond", jobId],
+    queryFn: () => (contract && jobId ? contract.getSubmissionBond(jobId) : Promise.resolve(BigInt(0))),
+    ...READ_DEFAULTS,
+    enabled: !!contract && !!jobId,
+  });
+}
+
 export function useMyWorkerJobs() {
   const contract = useAttestorContract();
   const { address } = useWallet();
@@ -130,17 +141,21 @@ export function usePostJob() {
   const m = useAttestorMutation<{
     title: string; brief: string; proofCriteria: string;
     workerAddress: string; maxAttempts: number; bountyWei: bigint;
+    targetUrl?: string;
   }>({
     run: (c, a) => c.postJob(a),
     successTitle: () => "Job posted",
-    successDescription: () => "The bounty is locked and the job is open for proof.",
+    successDescription: (a) =>
+      a.targetUrl
+        ? "The bounty is locked and the target URL is pinned forever."
+        : "The bounty is locked and the job is open for proof.",
     errorTitle: "Could not post job",
   });
   return { postJob: m.mutate, isPosting: m.isPending };
 }
 
 export function useSubmitProof() {
-  const m = useAttestorMutation<{ jobId: string; imageUrl: string; note: string }>({
+  const m = useAttestorMutation<{ jobId: string; imageUrl: string; note: string; bondWei: bigint }>({
     run: (c, a) => c.submitProof(a),
     successTitle: (_a, d) => (d?.args ? "Proof adjudicated" : "Proof adjudicated"),
     successDescription: () =>

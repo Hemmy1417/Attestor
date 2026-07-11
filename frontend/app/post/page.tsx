@@ -21,6 +21,8 @@ export default function PostJobPage() {
   const [attempts, setAttempts] = useState(3);
   const [openBounty, setOpenBounty] = useState(true);
   const [worker, setWorker] = useState("");
+  const [pinnedMode, setPinnedMode] = useState(false);
+  const [targetUrl, setTargetUrl] = useState("");
 
   const submit = () => {
     if (title.trim().length < 4)
@@ -36,6 +38,9 @@ export default function PostJobPage() {
     const workerAddr = openBounty ? "" : worker.trim();
     if (!openBounty && !/^0x[0-9a-fA-F]{40}$/.test(workerAddr))
       return toastError("Invalid worker address", { description: "Enter a full 42-character address, or choose Open bounty." });
+    const target = pinnedMode ? targetUrl.trim() : "";
+    if (pinnedMode && !/^https?:\/\/\S+/.test(target))
+      return toastError("Invalid target URL", { description: "Pinned evidence needs a public http(s) URL — the page the panel will screenshot." });
 
     postJob(
       {
@@ -45,6 +50,7 @@ export default function PostJobPage() {
         workerAddress: workerAddr,
         maxAttempts: attempts,
         bountyWei: wei,
+        targetUrl: target,
       },
       { onSuccess: () => router.push("/jobs") } as any,
     );
@@ -83,11 +89,52 @@ export default function PostJobPage() {
         </div>
 
         <div>
-          <label className="field-label">Acceptance criteria — what must the photo show?</label>
+          <label className="field-label">Acceptance criteria — what must the evidence show?</label>
           <textarea className="input"
                     placeholder="e.g. A photo showing the panel mounted flush on the wall with all four corner bolts visible and the cover plate attached."
                     value={criteria} onChange={(e) => setCriteria(e.target.value)} disabled={isPosting} />
-          <p className="text-[11px] text-muted mt-1.5">The panel rules the image against these exact words. Be specific and visual.</p>
+          <p className="text-[11px] text-muted mt-1.5">The panel rules the evidence against these exact words. Be specific and visual.</p>
+        </div>
+
+        <div>
+          <label className="field-label">Evidence mode</label>
+          <div className="flex gap-2">
+            <button
+              className="btn flex-1"
+              style={!pinnedMode
+                ? { background: "var(--lime)", color: "#ffffff" }
+                : { background: "transparent", color: "var(--ink)", border: "1px solid var(--line-hi)" }}
+              onClick={() => setPinnedMode(false)} disabled={isPosting}
+            >
+              Worker photo
+            </button>
+            <button
+              className="btn flex-1"
+              style={pinnedMode
+                ? { background: "var(--lime)", color: "#ffffff" }
+                : { background: "transparent", color: "var(--ink)", border: "1px solid var(--line-hi)" }}
+              onClick={() => setPinnedMode(true)} disabled={isPosting}
+            >
+              Pinned live target
+            </button>
+          </div>
+          {pinnedMode ? (
+            <>
+              <input className="input mono mt-3" placeholder="https://… the page the panel will screenshot"
+                     value={targetUrl} onChange={(e) => setTargetUrl(e.target.value)} disabled={isPosting} />
+              <p className="text-[11px] text-muted mt-1.5">
+                Strongest evidence: this URL is <span className="text-ink">frozen forever at posting</span> — at
+                adjudication the contract screenshots it <span className="text-ink">itself</span>. The worker can&apos;t
+                substitute or stage what the panel sees; it judges the live state of this page. Ideal for &quot;deploy
+                the fix&quot;, &quot;publish the page&quot;, &quot;make the dashboard show X&quot;.
+              </p>
+            </>
+          ) : (
+            <p className="text-[11px] text-muted mt-1.5">
+              The worker submits a hosted photo. The panel verifies what it depicts — honest caveat: it cannot
+              verify provenance (that the photo is recent, unstaged, or theirs). Use for physical-world work.
+            </p>
+          )}
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4">

@@ -6,7 +6,7 @@ import {
   Loader2, Camera, Lock, XCircle, CheckCircle2, ScanLine, ExternalLink, Ban,
 } from "lucide-react";
 import {
-  useJob, useProofs, useSubmitProof, useCancelJob,
+  useJob, useProofs, useSubmitProof, useCancelJob, useSubmissionBond,
 } from "@/lib/hooks/useAttestor";
 import { useWallet } from "@/lib/genlayer/wallet";
 import { formatGen, shortAddr } from "@/lib/utils";
@@ -82,6 +82,20 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
           </p>
         </div>
 
+        {job.evidence_mode === "PINNED" && (
+          <div className="mt-3 rounded-md p-4" style={{ background: "var(--void)", border: "1px solid var(--line-hi)" }}>
+            <div className="eyebrow mb-1" style={{ color: "var(--lime)" }}>Pinned evidence · frozen at posting</div>
+            <a href={job.target_url} target="_blank" rel="noreferrer"
+               className="mono text-xs break-all hover:underline" style={{ color: "var(--ink)" }}>
+              {job.target_url} <ExternalLink className="w-3 h-3 inline" />
+            </a>
+            <p className="text-[11px] text-muted mt-1.5">
+              At adjudication the contract screenshots this URL itself — the worker cannot alter or
+              substitute what the panel sees. The evidence is the live state of this page.
+            </p>
+          </div>
+        )}
+
         {job.status === "SETTLED" && (
           <div className="flex items-center gap-2 mt-5 text-sm" style={{ color: "var(--lime)" }}>
             <CheckCircle2 className="w-4 h-4" />
@@ -133,6 +147,7 @@ function ProofCard({ proof }: { proof: Proof }) {
       <div className="flex items-center gap-2 mb-2 flex-wrap">
         <VerdictChip verdict={proof.verdict} />
         <span className="chip chip-cancelled">Attempt {proof.attempt}</span>
+        <span className="chip chip-cancelled">{proof.evidence_mode === "PINNED" ? "Pinned target" : "Hosted image"}</span>
         <span className="mono text-xs text-muted ml-auto">
           conf {proof.confidence}/100 · {shortAddr(proof.submitter)}
         </span>
@@ -144,7 +159,7 @@ function ProofCard({ proof }: { proof: Proof }) {
         className="inline-flex items-center gap-1.5 text-xs font-semibold hover:underline mono mb-2"
         style={{ color: "var(--lime)" }}
       >
-        <ExternalLink className="w-3 h-3" /> View submitted image
+        <ExternalLink className="w-3 h-3" /> {proof.evidence_mode === "PINNED" ? "View adjudicated target" : "View submitted image"}
       </a>
       {proof.note && <p className="text-sm text-muted mb-2">“{proof.note}”</p>}
       <div className="rounded-md p-3" style={{ background: "var(--void)" }}>
@@ -157,27 +172,37 @@ function ProofCard({ proof }: { proof: Proof }) {
 
 function ProofForm({ job, attemptsLeft }: { job: Job; attemptsLeft: number }) {
   const { submitProof, isSubmitting } = useSubmitProof();
+  const { data: bond } = useSubmissionBond(job.job_id);
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
+  const pinned = job.evidence_mode === "PINNED";
+  const bondWei = bond ?? BigInt(0);
 
   const submit = () => {
+    if (bondWei === BigInt(0))
+      return toastError("Bond not loaded yet", { description: "One moment — fetching the attempt bond." });
     const u = url.trim();
-    if (!/^https?:\/\//i.test(u))
+    if (!pinned && !/^https?:\/\//i.test(u))
       return toastError("Image URL required", { description: "Paste a public http(s) link to your proof image." });
-    submitProof({ jobId: job.job_id, imageUrl: u, note: note.trim() });
+    submitProof({ jobId: job.job_id, imageUrl: pinned ? "" : u, note: note.trim(), bondWei });
   };
 
   return (
     <div className="card p-7">
-      <h2 className="display text-xl text-ink mb-1">Submit proof</h2>
+      <h2 className="display text-xl text-ink mb-1">{pinned ? "Request adjudication" : "Submit proof"}</h2>
       <p className="text-sm text-muted mb-5">
-        Paste a public link to an image that shows the acceptance criteria are
-        met. The vision panel will screenshot and judge it. You have{" "}
+        {pinned
+          ? "The contract will screenshot the pinned target itself and judge its live state — nothing to upload."
+          : "Paste a public link to an image that shows the acceptance criteria are met. The vision panel will screenshot and judge it."}{" "}
+        You have{" "}
         <span style={{ color: "var(--lime)" }} className="mono">{attemptsLeft}</span> attempt
-        {attemptsLeft === 1 ? "" : "s"} left.
+        {attemptsLeft === 1 ? "" : "s"} left. Each attempt is bonded at{" "}
+        <span style={{ color: "var(--lime)" }} className="mono">{formatGen(bondWei.toString())} GEN</span> —
+        returned if the proof verifies, forfeited into the escrow if it is rejected.
       </p>
 
       <div className="space-y-4">
+        {!pinned && (
         <div>
           <label className="field-label">Proof image URL</label>
           <input
@@ -188,9 +213,13 @@ function ProofForm({ job, attemptsLeft }: { job: Job; attemptsLeft: number }) {
             disabled={isSubmitting}
           />
           <p className="text-[11px] text-muted mt-1.5">
-            Must load without a login. Direct image links, public Gists, or IPFS gateways work best.
+            Use an HTML page that displays your image without a login — an image-host page, a Wikimedia
+            Commons file page, or your own site. Raw CDN file links (upload.wikimedia.org and similar)
+            often block automated fetchers: unreadable evidence is judged as missing proof and burns
+            your bond. Test the link in a private browser window first.
           </p>
         </div>
+        )}
         <div>
           <label className="field-label">Note (optional)</label>
           <textarea
@@ -205,7 +234,7 @@ function ProofForm({ job, attemptsLeft }: { job: Job; attemptsLeft: number }) {
           {isSubmitting ? (
             <><Loader2 className="w-4 h-4 animate-spin" /> The panel is looking…</>
           ) : (
-            <><Camera className="w-4 h-4" /> Submit for adjudication</>
+            <><Camera className="w-4 h-4" /> {pinned ? "Adjudicate the live target" : "Submit for adjudication"} · bond {formatGen(bondWei.toString())} GEN</>
           )}
         </button>
         {isSubmitting && (

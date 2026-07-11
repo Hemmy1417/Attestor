@@ -82,6 +82,8 @@ class Attestor {
       bounty_wei:     String(j.bounty_wei ?? "0"),
       attempts:       Number(j.attempts ?? 0),
       max_attempts:   Number(j.max_attempts ?? 0),
+      evidence_mode:  (String(j.evidence_mode ?? "HOSTED") as Job["evidence_mode"]),
+      target_url:     String(j.target_url ?? ""),
       settled_to:     String(j.settled_to ?? ""),
       created_seq:    Number(j.created_seq ?? 0),
       settled_seq:    Number(j.settled_seq ?? 0),
@@ -94,6 +96,8 @@ class Attestor {
       attempt:    Number(p.attempt ?? 0),
       submitter:  String(p.submitter ?? ""),
       image_url:  String(p.image_url ?? ""),
+      evidence_mode: (String(p.evidence_mode ?? "HOSTED") as Proof["evidence_mode"]),
+      bond_wei:   String(p.bond_wei ?? "0"),
       note:       String(p.note ?? ""),
       verdict:    (String(p.verdict ?? "REJECTED") as Proof["verdict"]),
       confidence: Number(p.confidence ?? 0),
@@ -111,10 +115,12 @@ class Attestor {
     return {
       min_bounty_wei:          String(s.min_bounty_wei ?? "0"),
       max_attempts:            Number(s.max_attempts ?? 5),
+      min_verified_confidence: Number(s.min_verified_confidence ?? 60),
       total_jobs:              Number(s.total_jobs ?? 0),
       total_bounty_volume_wei: String(s.total_bounty_volume_wei ?? "0"),
       total_paid_wei:          String(s.total_paid_wei ?? "0"),
       total_refunded_wei:      String(s.total_refunded_wei ?? "0"),
+      escrowed_wei:            String(s.escrowed_wei ?? "0"),
     };
   }
 
@@ -143,21 +149,30 @@ class Attestor {
     return Array.isArray(raw) ? raw.map((p) => this.normProof(p)) : [];
   }
 
+  /** The bond (wei) a proof attempt on this job currently requires. */
+  async getSubmissionBond(jobId: string): Promise<bigint> {
+    const raw = await this.safeRead("get_submission_bond", [jobId]);
+    const o = this.toObj(raw);
+    return BigInt(String(o.bond_wei ?? "0"));
+  }
+
   // ── writes ─────────────────────────────────────────────────────────────
 
   async postJob(args: {
     title: string; brief: string; proofCriteria: string;
     workerAddress: string; maxAttempts: number; bountyWei: bigint;
+    targetUrl?: string;
   }) {
     return this.write(
       "post_job",
-      [args.title, args.brief, args.proofCriteria, args.workerAddress, args.maxAttempts],
+      [args.title, args.brief, args.proofCriteria, args.workerAddress, args.maxAttempts, args.targetUrl ?? ""],
       args.bountyWei,
     );
   }
 
-  async submitProof(args: { jobId: string; imageUrl: string; note: string }) {
-    return this.write("submit_proof", [args.jobId, args.imageUrl, args.note]);
+  /** Payable: bondWei must cover getSubmissionBond's quote. */
+  async submitProof(args: { jobId: string; imageUrl: string; note: string; bondWei: bigint }) {
+    return this.write("submit_proof", [args.jobId, args.imageUrl, args.note], args.bondWei);
   }
 
   async cancelJob(jobId: string) {
