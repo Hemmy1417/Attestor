@@ -1,7 +1,7 @@
 // Shapes returned by the Attestor contract, post-normalization: every u256 is
 // a decimal string, every count a number — no BigInt past the wrapper.
 
-export type JobStatus = "OPEN" | "SETTLED" | "CANCELLED";
+export type JobStatus = "OPEN" | "CANCEL_PENDING" | "SETTLED" | "CANCELLED";
 export type Verdict = "VERIFIED" | "REJECTED";
 export type EvidenceMode = "PINNED" | "HOSTED";
 
@@ -21,6 +21,7 @@ export interface Job {
   settled_to: string;
   created_seq: number;
   settled_seq: number;
+  cancel_armed_seq: number;    // >0 while a cancel is pending (v3 window)
 }
 
 export interface Proof {
@@ -40,6 +41,8 @@ export interface ProtocolStats {
   min_bounty_wei: string;
   max_attempts: number;
   min_verified_confidence: number;
+  cancel_window_actions: number; // v3: cancel finalizable after this many actions
+  current_seq: number;           // the contract's global action counter
   total_jobs: number;
   total_bounty_volume_wei: string;
   total_paid_wei: string;

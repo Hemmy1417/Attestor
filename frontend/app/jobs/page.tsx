@@ -10,10 +10,11 @@ import { HowTo } from "@/components/HowTo";
 import type { JobStatus } from "@/lib/contracts/types";
 
 const FILTERS: { key: "all" | JobStatus; label: string }[] = [
-  { key: "all",       label: "All" },
-  { key: "OPEN",      label: "Open" },
-  { key: "SETTLED",   label: "Settled" },
-  { key: "CANCELLED", label: "Cancelled" },
+  { key: "all",            label: "All" },
+  { key: "OPEN",           label: "Open" },
+  { key: "CANCEL_PENDING", label: "Cancel pending" },
+  { key: "SETTLED",        label: "Settled" },
+  { key: "CANCELLED",      label: "Cancelled" },
 ];
 
 export default function JobsPage() {

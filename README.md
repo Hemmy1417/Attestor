@@ -5,7 +5,8 @@ Attestor locks GEN against acceptance criteria, then lets a GenLayer
 when it is. The first vision-judged build in the series: the panel doesn't
 read a description of the work, it *looks at the evidence*.
 
-**Contract:** `0xbEe47d2d60d5135a204a942DB329694228f820f4` (GenLayer Studionet)
+**Contract:** `0x065B2F29294Aa4C8Ad183537f9338848A676b795` (GenLayer Studionet, v3 —
+adds the two-step cancellation window; prior v2 `0xbEe47d…20f4`)
 
 Stress-tested end-to-end on-chain: a pinned `example.com` job verified from the contract's own
 screenshot and paid bounty + bond (+0.51 GEN, balance-checked); an impossible pinned job was
@@ -48,8 +49,15 @@ ignored; the hosted cat proof verified and paid. The escrow book closed to zero 
    bond into the escrow** — the eventual winner (or the client on cancel) is
    compensated for the noise; dice-rolling the panel isn't free. A VERIFIED
    below **confidence 60 is downgraded** — money never moves on a hesitant
-   ruling. When attempts run out, or before any submission, the client
-   reclaims the escrow (including forfeited bonds) with `cancel_job`.
+   ruling.
+5. **Cancel (v3 — two-step)** — `cancel_job` **arms** a cancellation: the
+   job turns `CANCEL_PENDING`, a public on-chain state, and **no funds move
+   yet**. `finalize_cancel` releases the escrow (including forfeited bonds)
+   only after the contract's global action counter has advanced **10 more
+   actions** — or immediately once the attempt budget is exhausted, when the
+   worker has no move left. The worker can still submit proof while a cancel
+   is pending: a VERIFIED ruling settles and pays atomically, killing the
+   cancel. `withdraw_cancel` lets the client stand down.
 
 ## Why GenLayer
 
@@ -89,24 +97,28 @@ ruling before any GEN moves. The pinned-target mode goes further — the
   actually showed on-chain, so a client who rewrites their page to dodge
   payment leaves a public evidence trail. Criteria should target stable page
   elements, not feeds or timestamps.
-- **The client can cancel any unsettled job — Attestor is a proof-of-payment
-  guarantee, not a demand guarantee.** `cancel_job` works on any OPEN job at
-  any time, including after a worker has started (GenLayer exposes no block
-  time, so there are no clock-based lock windows — state moves by action
-  only). What the escrow *does* guarantee: the bounty is real, locked GEN —
-  a worker who completes the work and gets a VERIFIED ruling is paid
-  atomically in the submission transaction, and a cancel cannot claw back a
-  settled job. A cancel and a submission race only in transaction ordering,
-  never on a review the client gets to see first: there is no window where
-  the client can watch a proof verdict land and then cancel. The worker's
-  downside is bounded and priced — at most the bonds already forfeited by
-  their own REJECTED attempts (which the cancelling client keeps as noise
-  compensation); a pending or never-made attempt costs nothing. Workers
-  should treat OPEN jobs as at-will until settled — the same trust shape as
-  any withdrawable real-world bounty, stated here instead of hidden. A
-  worker-acceptance handshake that locks cancellation behind the worker's
-  consent or an action-based response window is the natural hardening and
-  would require a redeploy.
+- **Cancellation is two-step and windowed (v3) — the "cancel out from under
+  a finished worker" grief is closed on-chain.** The exploit worth worrying
+  about was specific to PINNED jobs: the work product is publicly visible
+  the moment it's done (the client's page is fixed), so an instant cancel
+  would let a client watch the fix land, cancel before the worker's
+  submission transaction, and keep both the refund and the work. v3 removes
+  the instant path: `cancel_job` only **arms** `CANCEL_PENDING` — a public
+  on-chain state visible on the job page before any funds can move — and
+  `finalize_cancel` is refused until the contract's global action counter
+  has advanced `CANCEL_WINDOW_ACTIONS` (10) ticks. For the whole window the
+  worker keeps the right to submit proof, and a VERIFIED ruling settles and
+  pays **atomically in the same transaction** — a settle always beats a
+  pending cancel, and a cancel can never claw back a settled job. The one
+  exception is honest: once the attempt budget is exhausted the worker has
+  no move the window could protect, so cancel is immediate (that is the
+  normal reclaim path). GenLayer exposes no block time, so the window is
+  measured in contract actions, not seconds — it is a forced public speed
+  bump plus a guaranteed last-mover right for the worker, not a wall-clock
+  timelock, and we say so. The worker's residual downside stays bounded and
+  priced: at most the bonds already forfeited by their own REJECTED
+  attempts, which a finalized cancel pays to the client as noise
+  compensation.
 - **Rulings are inline and final per attempt** — the capped, bonded resubmit
   budget is the only second chance; there is no appeal.
 - The evidence screenshot and the worker note are material under review,
@@ -127,7 +139,7 @@ ruling before any GEN moves. The pinned-target mode goes further — the
 ├── deploy/
 │   └── deployScript.ts    # genlayer-js deploy script
 ├── tests/
-│   └── direct/            # 34 deterministic tests (stubbed GenLayer + vision)
+│   └── direct/            # 40 deterministic tests (stubbed GenLayer + vision)
 ├── frontend/              # Next.js 16 — "qintara" black/violet, sidebar app shell
 ├── gltest.config.yaml
 ├── pyproject.toml

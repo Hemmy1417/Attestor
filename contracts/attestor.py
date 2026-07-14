@@ -1,4 +1,4 @@
-# v0.1.0
+# v0.3.0
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 
 from genlayer import *
@@ -18,7 +18,14 @@ SUBMISSION_BOND_BPS = 100          # each proof attempt is bonded: 1% of the esc
 MIN_SUBMISSION_BOND_WEI = 10 ** 16 # ...but never less than 0.01 GEN
 MIN_VERIFIED_CONFIDENCE = 60       # a money-releasing verdict must be confident
 
-JOB_STATUSES = ["OPEN", "SETTLED", "CANCELLED"]
+# v3: a cancel is two-step — arm, then finalize only after the contract's
+# global action counter has advanced this many ticks. No chain clock exists,
+# so the window is measured in actions (every write ticks the counter); the
+# worker always sees CANCEL_PENDING on-chain and can still submit proof —
+# a VERIFIED settle inside the window beats the cancel atomically.
+CANCEL_WINDOW_ACTIONS = 10
+
+JOB_STATUSES = ["OPEN", "CANCEL_PENDING", "SETTLED", "CANCELLED"]
 
 VISION_GUARDRAILS = """
 GUARDRAILS:
@@ -76,10 +83,25 @@ class Attestor(gl.Contract):
     - A VERIFIED verdict below confidence 60 is downgraded to REJECTED —
       money only moves on confident rulings.
 
+    Cancellation (v3 — two-step with an action window):
+    - cancel_job ARMS a cancellation (CANCEL_PENDING) instead of paying out;
+      finalize_cancel releases the refund only after the global action
+      counter has advanced CANCEL_WINDOW_ACTIONS ticks (or the attempt
+      budget is already exhausted — then the worker has no move left and
+      cancel is immediate). The worker can still submit proof while a cancel
+      is pending — a VERIFIED ruling settles and pays atomically, killing
+      the cancel. withdraw_cancel lets the client stand down. This closes
+      the "client watches the pinned page get fixed, cancels before the
+      worker's submission lands" grief: cancel intent is a public on-chain
+      state before any funds move, and the finished worker always outruns
+      it with one transaction.
+
     Trust boundaries (stated honestly):
     - Rulings are inline and final per attempt — the resubmit budget is the
       only second chance; there is no appeal.
-    - Rounds close by action, not clock — GenLayer exposes no block time.
+    - Rounds close by action, not clock — GenLayer exposes no block time;
+      the cancel window is measured in contract actions, so it is a forced
+      public speed bump, not a wall-clock timelock.
     """
 
     # ── persistent state ────────────────────────────────────────────────────
@@ -169,6 +191,8 @@ class Attestor(gl.Contract):
             "min_bounty_wei":          str(MIN_BOUNTY_WEI),
             "max_attempts":            MAX_ATTEMPTS,
             "min_verified_confidence": MIN_VERIFIED_CONFIDENCE,
+            "cancel_window_actions":   CANCEL_WINDOW_ACTIONS,
+            "current_seq":             int(self.seq),
             "total_jobs":              int(self.job_counter),
             "total_bounty_volume_wei": str(int(self.total_bounty_volume_wei)),
             "total_paid_wei":          str(int(self.total_paid_wei)),
@@ -280,6 +304,7 @@ class Attestor(gl.Contract):
             "settled_to":     "",
             "created_seq":    self._tick(),
             "settled_seq":    0,
+            "cancel_armed_seq": 0,                  # set while a cancel is pending
         }
         self._save(self.jobs, job_id, job)
         self._append_index(self.jobs_by_client, client.lower(), job_id)
@@ -298,7 +323,10 @@ class Attestor(gl.Contract):
         submitter = str(gl.message.sender_address)
         job = self._load(self.jobs, job_id, "Job")
 
-        if job["status"] != "OPEN":
+        # CANCEL_PENDING stays submittable by design: the action window
+        # exists precisely so a finished worker can still get adjudicated —
+        # a VERIFIED ruling settles atomically and beats the pending cancel.
+        if job["status"] not in ("OPEN", "CANCEL_PENDING"):
             raise gl.vm.UserError("Job is not open")
         if int(job["attempts"]) >= int(job["max_attempts"]):
             raise gl.vm.UserError("No attempts remaining")
@@ -460,6 +488,7 @@ Accept the output if ALL of the following hold:
             job["status"] = "SETTLED"
             job["settled_to"] = submitter
             job["settled_seq"] = int(self.seq)
+            job["cancel_armed_seq"] = 0   # a settle beats any pending cancel
             self._save(self.jobs, job_id, job)
             # Record the winner in the worker index if this was an open bounty.
             if not job["worker"]:
@@ -477,8 +506,23 @@ Accept the output if ALL of the following hold:
         return {**proof_record, "job_status": job["status"], "attempts_left": int(job["max_attempts"]) - attempt_no}
 
     # ────────────────────────────────────────────────────────────────────────
-    # CANCEL JOB — client reclaims escrow on an unsettled job
+    # CANCEL JOB — v3 two-step: arm → action window → finalize.
+    # The refund only moves after the window (or when the worker has no
+    # attempts left); the worker can still submit while a cancel is pending.
     # ────────────────────────────────────────────────────────────────────────
+
+    def _refund_and_close(self, job_id: str, job: dict) -> dict:
+        # Refund includes any bonds forfeited by failed attempts — the client
+        # is compensated for adjudication noise on a job that never settled.
+        bounty = int(job["bounty_wei"])
+        job["status"] = "CANCELLED"
+        job["settled_seq"] = self._tick()
+        job["cancel_armed_seq"] = 0
+        self._save(self.jobs, job_id, job)
+        self.total_refunded_wei = u256(int(self.total_refunded_wei) + bounty)
+        self._book_out(bounty)
+        self._pay(job["client"], bounty)
+        return job
 
     @gl.public.write
     def cancel_job(self, job_id: str) -> dict:
@@ -489,13 +533,48 @@ Accept the output if ALL of the following hold:
         if job["status"] != "OPEN":
             raise gl.vm.UserError("Job is not open")
 
-        # Refund includes any bonds forfeited by failed attempts — the client
-        # is compensated for adjudication noise on a job that never settled.
-        bounty = int(job["bounty_wei"])
-        job["status"] = "CANCELLED"
-        job["settled_seq"] = self._tick()
+        # No attempts left = the worker has no move the window could protect;
+        # cancel immediately (also the exhausted-budget reclaim path).
+        if int(job["attempts"]) >= int(job["max_attempts"]):
+            return self._refund_and_close(job_id, job)
+
+        # Arm: cancellation becomes a public on-chain state BEFORE any funds
+        # move. The worker keeps the right to submit proof for the whole
+        # window — a VERIFIED ruling settles atomically and kills the cancel.
+        job["status"] = "CANCEL_PENDING"
+        job["cancel_armed_seq"] = self._tick()
         self._save(self.jobs, job_id, job)
-        self.total_refunded_wei = u256(int(self.total_refunded_wei) + bounty)
-        self._book_out(bounty)
-        self._pay(job["client"], bounty)
         return job
+
+    @gl.public.write
+    def withdraw_cancel(self, job_id: str) -> dict:
+        sender = str(gl.message.sender_address)
+        job = self._load(self.jobs, job_id, "Job")
+        if sender.lower() != job["client"].lower():
+            raise gl.vm.UserError("Only the client can withdraw their cancellation")
+        if job["status"] != "CANCEL_PENDING":
+            raise gl.vm.UserError("No cancellation is pending on this job")
+        job["status"] = "OPEN"
+        job["cancel_armed_seq"] = 0
+        self._tick()
+        self._save(self.jobs, job_id, job)
+        return job
+
+    @gl.public.write
+    def finalize_cancel(self, job_id: str) -> dict:
+        sender = str(gl.message.sender_address)
+        job = self._load(self.jobs, job_id, "Job")
+        if sender.lower() != job["client"].lower():
+            raise gl.vm.UserError("Only the client can finalize their cancellation")
+        if job["status"] != "CANCEL_PENDING":
+            raise gl.vm.UserError("No cancellation is pending on this job")
+
+        window_open = int(self.seq) >= int(job["cancel_armed_seq"]) + CANCEL_WINDOW_ACTIONS
+        exhausted = int(job["attempts"]) >= int(job["max_attempts"])
+        if not (window_open or exhausted):
+            remaining = int(job["cancel_armed_seq"]) + CANCEL_WINDOW_ACTIONS - int(self.seq)
+            raise gl.vm.UserError(
+                f"Cancellation window still open — the worker may yet submit proof; "
+                f"finalizable after {remaining} more contract action(s)"
+            )
+        return self._refund_and_close(job_id, job)

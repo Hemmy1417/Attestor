@@ -194,6 +194,12 @@ def _rule(verdict, confidence=90, reasoning="clear"):
     return json.dumps({"verdict": verdict, "confidence": confidence, "reasoning": reasoning})
 
 
+def _advance(module, c, n):
+    """Advance the contract's global action counter — in production every
+    write ticks it; direct tests jump it to exercise the cancel window."""
+    c.seq = module.u256(int(c.seq) + n)
+
+
 # ── Posting jobs ─────────────────────────────────────────────────────────────
 
 def test_post_job_happy_path(module):
@@ -345,16 +351,40 @@ def test_no_submit_after_settled(module):
         c.submit_proof(job["job_id"], URL, "note")
 
 
-# ── Cancel / refund ──────────────────────────────────────────────────────────
+# ── Cancel / refund (v3: two-step arm → window → finalize) ───────────────────
 
-def test_cancel_refunds_client(module):
+def test_cancel_arms_pending_no_funds_move(module):
+    c = module.Attestor()
+    job = _post(module, c, worker=WORKER)
+    _as(module, CLIENT, 0)
+    out = c.cancel_job(job["job_id"])
+    assert out["status"] == "CANCEL_PENDING"
+    assert out["cancel_armed_seq"] > 0
+    assert module.gl._emit.total_to(CLIENT) == 0
+    assert c.get_protocol_stats()["escrowed_wei"] == str(BOUNTY)
+
+
+def test_finalize_inside_window_is_refused(module):
     c = module.Attestor()
     job = _post(module, c, worker=WORKER)
     _as(module, CLIENT, 0)
     c.cancel_job(job["job_id"])
+    with pytest.raises(module.gl.vm.UserError, match="window still open"):
+        c.finalize_cancel(job["job_id"])
+    assert module.gl._emit.total_to(CLIENT) == 0
+
+
+def test_finalize_after_window_refunds_client(module):
+    c = module.Attestor()
+    job = _post(module, c, worker=WORKER)
+    _as(module, CLIENT, 0)
+    c.cancel_job(job["job_id"])
+    _advance(module, c, module.CANCEL_WINDOW_ACTIONS)
+    c.finalize_cancel(job["job_id"])
     assert module.gl._emit.total_to(CLIENT) == BOUNTY
     assert c.get_job(job["job_id"])["status"] == "CANCELLED"
     assert c.get_protocol_stats()["total_refunded_wei"] == str(BOUNTY)
+    assert c.get_protocol_stats()["escrowed_wei"] == "0"
 
 
 def test_cancel_only_client(module):
@@ -365,15 +395,75 @@ def test_cancel_only_client(module):
         c.cancel_job(job["job_id"])
 
 
-def test_cancel_after_exhausted_attempts(module):
+def test_cancel_after_exhausted_attempts_is_instant(module):
     c = module.Attestor()
     job = _post(module, c, worker=WORKER, attempts=1)
     module.gl.eq_principle.canned_output = _rule("REJECTED")
     _submit(module, c, job["job_id"], WORKER)
     _as(module, CLIENT, 0)
-    c.cancel_job(job["job_id"])
+    out = c.cancel_job(job["job_id"])
+    # no window when the worker has no attempts left — cancel is immediate
+    assert out["status"] == "CANCELLED"
     # refund includes the forfeited bond
     assert module.gl._emit.total_to(CLIENT) == BOUNTY + BOND
+
+
+def test_withdraw_cancel_reopens_job(module):
+    c = module.Attestor()
+    job = _post(module, c, worker=WORKER)
+    _as(module, CLIENT, 0)
+    c.cancel_job(job["job_id"])
+    out = c.withdraw_cancel(job["job_id"])
+    assert out["status"] == "OPEN"
+    assert out["cancel_armed_seq"] == 0
+    # a withdrawn cancel leaves nothing to finalize
+    with pytest.raises(module.gl.vm.UserError, match="No cancellation is pending"):
+        c.finalize_cancel(job["job_id"])
+
+
+def test_worker_can_still_win_during_pending_cancel(module):
+    c = module.Attestor()
+    job = _post(module, c, worker=WORKER)
+    _as(module, CLIENT, 0)
+    c.cancel_job(job["job_id"])
+    module.gl.eq_principle.canned_output = _rule("VERIFIED")
+    out = _submit(module, c, job["job_id"], WORKER)
+    # the settle beats the pending cancel atomically
+    assert out["verdict"] == "VERIFIED"
+    assert out["job_status"] == "SETTLED"
+    assert module.gl._emit.total_to(WORKER) == BOUNTY + BOND
+    _as(module, CLIENT, 0)
+    with pytest.raises(module.gl.vm.UserError, match="No cancellation is pending"):
+        c.finalize_cancel(job["job_id"])
+
+
+def test_rejection_during_pending_exhausts_then_finalize_is_instant(module):
+    c = module.Attestor()
+    job = _post(module, c, worker=WORKER, attempts=1)
+    _as(module, CLIENT, 0)
+    c.cancel_job(job["job_id"])
+    module.gl.eq_principle.canned_output = _rule("REJECTED")
+    out = _submit(module, c, job["job_id"], WORKER)
+    assert out["job_status"] == "CANCEL_PENDING"   # attempt consumed, still pending
+    _as(module, CLIENT, 0)
+    # attempts exhausted → the window no longer protects anyone
+    c.finalize_cancel(job["job_id"])
+    assert c.get_job(job["job_id"])["status"] == "CANCELLED"
+    # refund includes the bond forfeited during the pending window
+    assert module.gl._emit.total_to(CLIENT) == BOUNTY + BOND
+    assert c.get_protocol_stats()["escrowed_wei"] == "0"
+
+
+def test_only_client_can_withdraw_or_finalize(module):
+    c = module.Attestor()
+    job = _post(module, c, worker=WORKER)
+    _as(module, CLIENT, 0)
+    c.cancel_job(job["job_id"])
+    _as(module, WORKER, 0)
+    with pytest.raises(module.gl.vm.UserError, match="Only the client"):
+        c.withdraw_cancel(job["job_id"])
+    with pytest.raises(module.gl.vm.UserError, match="Only the client"):
+        c.finalize_cancel(job["job_id"])
 
 
 def test_cannot_cancel_settled(module):
@@ -402,6 +492,8 @@ def test_bounty_conservation_refunded(module):
     job = _post(module, c, worker=WORKER)
     _as(module, CLIENT, 0)
     c.cancel_job(job["job_id"])
+    _advance(module, c, module.CANCEL_WINDOW_ACTIONS)
+    c.finalize_cancel(job["job_id"])
     total_out = sum(v for (_, v, _) in module.gl._emit.transfers)
     assert total_out == BOUNTY
 
@@ -532,6 +624,8 @@ def test_stats_shape(module):
     c = module.Attestor()
     stats = c.get_protocol_stats()
     for key in ("min_bounty_wei", "max_attempts", "min_verified_confidence",
+                "cancel_window_actions", "current_seq",
                 "total_jobs", "total_bounty_volume_wei", "total_paid_wei",
                 "total_refunded_wei", "escrowed_wei"):
         assert key in stats
+    assert stats["cancel_window_actions"] == module.CANCEL_WINDOW_ACTIONS

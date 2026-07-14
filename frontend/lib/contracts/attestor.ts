@@ -99,6 +99,7 @@ class Attestor {
       settled_to:     String(j.settled_to ?? ""),
       created_seq:    Number(j.created_seq ?? 0),
       settled_seq:    Number(j.settled_seq ?? 0),
+      cancel_armed_seq: Number(j.cancel_armed_seq ?? 0),
     } as Job;
   }
 
@@ -128,6 +129,8 @@ class Attestor {
       min_bounty_wei:          String(s.min_bounty_wei ?? "0"),
       max_attempts:            Number(s.max_attempts ?? 5),
       min_verified_confidence: Number(s.min_verified_confidence ?? 60),
+      cancel_window_actions:   Number(s.cancel_window_actions ?? 10),
+      current_seq:             Number(s.current_seq ?? 0),
       total_jobs:              Number(s.total_jobs ?? 0),
       total_bounty_volume_wei: String(s.total_bounty_volume_wei ?? "0"),
       total_paid_wei:          String(s.total_paid_wei ?? "0"),
@@ -187,8 +190,18 @@ class Attestor {
     return this.write("submit_proof", [args.jobId, args.imageUrl, args.note], args.bondWei);
   }
 
+  /** v3: arms CANCEL_PENDING (instant CANCELLED only when attempts are exhausted). */
   async cancelJob(jobId: string) {
     return this.write("cancel_job", [jobId]);
+  }
+
+  async withdrawCancel(jobId: string) {
+    return this.write("withdraw_cancel", [jobId]);
+  }
+
+  /** Releases the refund — only after the action window (or exhausted attempts). */
+  async finalizeCancel(jobId: string) {
+    return this.write("finalize_cancel", [jobId]);
   }
 }
 

@@ -3,9 +3,11 @@ import type { JobStatus, Verdict } from "@/lib/contracts/types";
 export function StatusChip({ status }: { status: JobStatus }) {
   const cls =
     status === "OPEN" ? "chip-open" :
+    status === "CANCEL_PENDING" ? "chip-rejected" :
     status === "SETTLED" ? "chip-settled" : "chip-cancelled";
   const label =
     status === "OPEN" ? "Open" :
+    status === "CANCEL_PENDING" ? "Cancel pending" :
     status === "SETTLED" ? "Settled" : "Cancelled";
   return <span className={`chip ${cls}`}>{label}</span>;
 }

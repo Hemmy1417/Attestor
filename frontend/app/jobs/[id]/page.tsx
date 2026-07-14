@@ -4,9 +4,11 @@ import { use, useState } from "react";
 import Link from "next/link";
 import {
   Loader2, Camera, Lock, XCircle, CheckCircle2, ScanLine, ExternalLink, Ban,
+  Undo2, ShieldAlert,
 } from "lucide-react";
 import {
-  useJob, useProofs, useSubmitProof, useCancelJob, useSubmissionBond,
+  useJob, useProofs, useSubmitProof, useCancelJob, useWithdrawCancel,
+  useFinalizeCancel, useSubmissionBond, useProtocolStats,
 } from "@/lib/hooks/useAttestor";
 import { useWallet } from "@/lib/genlayer/wallet";
 import { formatGen, shortAddr } from "@/lib/utils";
@@ -18,8 +20,11 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
   const { id } = use(params);
   const { data: job, isLoading } = useJob(id);
   const { data: proofs } = useProofs(id);
+  const { data: stats } = useProtocolStats();
   const { address, isConnected } = useWallet();
   const { cancelJob, isCancelling } = useCancelJob();
+  const { withdrawCancel, isWithdrawing } = useWithdrawCancel();
+  const { finalizeCancel, isFinalizing } = useFinalizeCancel();
 
   if (isLoading) {
     return (
@@ -41,10 +46,21 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
   const isClient = !!me && me === job.client.toLowerCase();
   const isAssignedWorker = !!job.worker && !!me && me === job.worker.toLowerCase();
   const attemptsLeft = job.max_attempts - job.attempts;
+  // CANCEL_PENDING stays submittable — the window exists so a finished
+  // worker can still get adjudicated before the cancel finalizes.
+  const submittable = job.status === "OPEN" || job.status === "CANCEL_PENDING";
   const canSubmit =
-    isConnected && job.status === "OPEN" && !isClient && attemptsLeft > 0 &&
+    isConnected && submittable && !isClient && attemptsLeft > 0 &&
     (job.worker ? isAssignedWorker : true);
   const canCancel = isClient && job.status === "OPEN";
+  const cancelPending = job.status === "CANCEL_PENDING";
+  // The window is measured in contract actions (no chain clock). Stats are
+  // read with a 60s stale time, so this is an at-least estimate — the
+  // contract enforces the real gate and finalize surfaces its revert.
+  const windowActions = stats?.cancel_window_actions ?? 10;
+  const actionsElapsed = Math.max(0, (stats?.current_seq ?? 0) - job.cancel_armed_seq);
+  const actionsRemaining = Math.max(0, windowActions - actionsElapsed);
+  const finalizeEligible = cancelPending && (actionsRemaining === 0 || attemptsLeft <= 0);
 
   return (
     <div className="px-6 lg:px-10 py-8 max-w-3xl space-y-6">
@@ -104,14 +120,63 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
         )}
 
         {canCancel && (
-          <button
-            className="btn btn-danger mt-6"
-            disabled={isCancelling}
-            onClick={() => cancelJob({ jobId: job.job_id })}
-          >
-            {isCancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
-            Cancel &amp; reclaim {formatGen(job.bounty_wei)} GEN
-          </button>
+          <div className="mt-6">
+            <button
+              className="btn btn-danger"
+              disabled={isCancelling}
+              onClick={() => cancelJob({ jobId: job.job_id })}
+            >
+              {isCancelling ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+              {attemptsLeft <= 0
+                ? <>Cancel &amp; reclaim {formatGen(job.bounty_wei)} GEN</>
+                : <>Arm cancellation</>}
+            </button>
+            {attemptsLeft > 0 && (
+              <p className="text-[11px] text-muted mt-2">
+                Cancelling is two-step: arming makes your intent a public on-chain state, and the
+                refund only releases after {windowActions} further contract actions — the worker can
+                still submit proof during that window, and a verified proof settles the job instead.
+              </p>
+            )}
+          </div>
+        )}
+
+        {cancelPending && (
+          <div className="mt-6 rounded-md p-4" style={{ background: "var(--void)", border: "1px solid rgba(239,68,68,0.4)" }}>
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldAlert className="w-4 h-4" style={{ color: "#ef4444" }} />
+              <div className="eyebrow" style={{ color: "#ef4444" }}>Cancellation pending</div>
+            </div>
+            <p className="text-sm text-soft leading-relaxed">
+              The client has armed a cancellation.{" "}
+              {finalizeEligible
+                ? "The action window has passed — the cancel can be finalized at any moment."
+                : <>It becomes finalizable after{" "}
+                    <span className="mono" style={{ color: "var(--ink)" }}>{actionsRemaining}</span>{" "}
+                    more contract action{actionsRemaining === 1 ? "" : "s"}.</>}{" "}
+              {attemptsLeft > 0 && "Proof can still be submitted — a VERIFIED ruling settles the job and beats the cancel."}
+            </p>
+            {isClient && (
+              <div className="flex gap-2 mt-3 flex-wrap">
+                <button
+                  className="btn btn-danger"
+                  disabled={isFinalizing}
+                  onClick={() => finalizeCancel({ jobId: job.job_id })}
+                >
+                  {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
+                  Finalize &amp; reclaim {formatGen(job.bounty_wei)} GEN
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  disabled={isWithdrawing}
+                  onClick={() => withdrawCancel({ jobId: job.job_id })}
+                >
+                  {isWithdrawing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />}
+                  Withdraw cancellation
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -127,12 +192,12 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
 
       {/* Submit form */}
       {canSubmit && <ProofForm job={job} attemptsLeft={attemptsLeft} />}
-      {isConnected && job.status === "OPEN" && isClient && (
+      {isConnected && submittable && isClient && !cancelPending && (
         <p className="text-sm text-muted text-center mono">
           This is your job — you cannot submit proof on it.
         </p>
       )}
-      {isConnected && job.status === "OPEN" && attemptsLeft <= 0 && (
+      {isConnected && submittable && attemptsLeft <= 0 && (
         <p className="text-sm text-muted text-center mono">
           No attempts remain — the client can reclaim the bounty.
         </p>

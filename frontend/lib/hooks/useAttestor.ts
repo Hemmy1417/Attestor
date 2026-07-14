@@ -171,9 +171,31 @@ export function useSubmitProof() {
 export function useCancelJob() {
   const m = useAttestorMutation<{ jobId: string }>({
     run: (c, a) => c.cancelJob(a.jobId),
-    successTitle: () => "Job cancelled",
-    successDescription: () => "The bounty has been returned to your wallet.",
+    successTitle: () => "Cancellation armed",
+    successDescription: () =>
+      "The cancel is now a public on-chain state. The worker can still submit proof during the window; finalize after it to reclaim the escrow.",
     errorTitle: "Cancel failed",
   });
   return { cancelJob: m.mutate, isCancelling: m.isPending };
+}
+
+export function useWithdrawCancel() {
+  const m = useAttestorMutation<{ jobId: string }>({
+    run: (c, a) => c.withdrawCancel(a.jobId),
+    successTitle: () => "Cancellation withdrawn",
+    successDescription: () => "The job is open again.",
+    errorTitle: "Withdraw failed",
+  });
+  return { withdrawCancel: m.mutate, isWithdrawing: m.isPending };
+}
+
+export function useFinalizeCancel() {
+  const m = useAttestorMutation<{ jobId: string }>({
+    run: (c, a) => c.finalizeCancel(a.jobId),
+    successTitle: () => "Job cancelled",
+    successDescription: () =>
+      "The escrow (including any forfeited bonds) has been returned to your wallet.",
+    errorTitle: "Finalize failed",
+  });
+  return { finalizeCancel: m.mutate, isFinalizing: m.isPending };
 }
