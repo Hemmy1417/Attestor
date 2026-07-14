@@ -9,11 +9,14 @@ import { success, error } from "../toast";
 import type { Job, Proof, ProtocolStats } from "../contracts/types";
 
 export function useAttestorContract(): Attestor | null {
-  const { address } = useWallet();
+  // The wallet context owns the ONE provider-backed client (created with the
+  // connected EIP-1193 provider). Injecting it here is what makes writes
+  // signed by the user's wallet — the wrapper never builds its own signer.
+  const { client } = useWallet();
   return useMemo(() => {
     if (!CONTRACT_CONFIGURED) return null;
-    return new Attestor(CONTRACT_ADDRESS, address || null);
-  }, [address]);
+    return new Attestor(CONTRACT_ADDRESS, client);
+  }, [client]);
 }
 
 // ── READ HOOKS ──────────────────────────────────────────────────────────────

@@ -71,6 +71,42 @@ ruling before any GEN moves. The pinned-target mode goes further — the
   file links and login-walled pages often block automated fetchers, and
   unreadable evidence is judged as missing proof (and burns the bond).
   Fail-safe, not fail-open.
+- **Pinning freezes the pointer, not the content — by design.** PINNED mode
+  verifies the *live state* of a target: the job is done exactly when the
+  pinned page shows what the criteria demand, so content mutability is the
+  point, not a loophole. What pinning eliminates is worker-side evidence
+  substitution — the panel only ever looks at the URL frozen on-chain at
+  posting; a worker cannot redirect it to a staged page. The residual trust
+  boundary is host control: whoever operates the pinned host controls what
+  the panel sees. Three things bound that risk: (1) the target is public and
+  frozen on-chain *before* any work starts, so a worker accepts the job
+  knowing exactly which surface will be judged; (2) **adjudication is
+  worker-triggered and atomic** — the worker submits at a moment they can see
+  the live page satisfies the criteria, and the screenshot, ruling, and
+  payout happen in that same transaction, leaving no gap for the client to
+  time a sabotage between "proof accepted" and "money moves"; (3) every
+  rejection stores the analyst's objective description of what the page
+  actually showed on-chain, so a client who rewrites their page to dodge
+  payment leaves a public evidence trail. Criteria should target stable page
+  elements, not feeds or timestamps.
+- **The client can cancel any unsettled job — Attestor is a proof-of-payment
+  guarantee, not a demand guarantee.** `cancel_job` works on any OPEN job at
+  any time, including after a worker has started (GenLayer exposes no block
+  time, so there are no clock-based lock windows — state moves by action
+  only). What the escrow *does* guarantee: the bounty is real, locked GEN —
+  a worker who completes the work and gets a VERIFIED ruling is paid
+  atomically in the submission transaction, and a cancel cannot claw back a
+  settled job. A cancel and a submission race only in transaction ordering,
+  never on a review the client gets to see first: there is no window where
+  the client can watch a proof verdict land and then cancel. The worker's
+  downside is bounded and priced — at most the bonds already forfeited by
+  their own REJECTED attempts (which the cancelling client keeps as noise
+  compensation); a pending or never-made attempt costs nothing. Workers
+  should treat OPEN jobs as at-will until settled — the same trust shape as
+  any withdrawable real-world bounty, stated here instead of hidden. A
+  worker-acceptance handshake that locks cancellation behind the worker's
+  consent or an action-based response window is the natural hardening and
+  would require a redeploy.
 - **Rulings are inline and final per attempt** — the capped, bonded resubmit
   budget is the only second chance; there is no appeal.
 - The evidence screenshot and the worker note are material under review,
@@ -109,6 +145,19 @@ ruling before any GEN moves. The pinned-target mode goes further — the
 - **My work** — jobs you posted and jobs you worked
 
 Every write surfaces its transaction hash with a Studionet explorer link.
+
+### Signed writes
+
+The wallet context (`lib/genlayer/wallet.tsx`) creates one provider-backed
+genlayer-js client — `createClient({ chain, account, provider })` with the
+EIP-1193 provider the user picked (EIP-6963 discovery) — and
+`useAttestorContract` injects that client into the contract wrapper. The
+wrapper signs every write through it and **refuses to write when no wallet is
+connected** — it never falls back to a bare (unsigned) client or to
+`window.ethereum`. `frontend/tests/signed-write.test.ts` pins this: writes
+route through the injected client, disconnected writes throw, and the signing
+request (`eth_sendTransaction`) reaches the injected provider with the
+connected account as `from`. Run with `npm test` in `frontend/`.
 
 ## Running locally
 
