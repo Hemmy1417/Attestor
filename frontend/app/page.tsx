@@ -111,7 +111,7 @@ export default function HomePage() {
       {/* Stats */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label="Jobs posted" value={String(stats?.total_jobs ?? 0)} />
-        <Stat label="Escrow locked" value={`${formatGen(stats?.total_bounty_volume_wei ?? "0")} GEN`} />
+        <Stat label="Escrow locked" value={`${formatGen(stats?.escrowed_wei ?? "0")} GEN`} />
         <Stat label="Paid to workers" value={`${formatGen(stats?.total_paid_wei ?? "0")} GEN`} />
         <Stat label="Refunded" value={`${formatGen(stats?.total_refunded_wei ?? "0")} GEN`} />
       </section>

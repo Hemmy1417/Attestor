@@ -52,7 +52,7 @@ function LiveStats() {
       <div className="eyebrow mb-2.5">Protocol</div>
       <div className="space-y-2">
         <Row label="Jobs" value={String(stats?.total_jobs ?? 0)} />
-        <Row label="Locked" value={`${formatGen(stats?.total_bounty_volume_wei ?? "0")}`} accent />
+        <Row label="Locked" value={`${formatGen(stats?.escrowed_wei ?? "0")}`} accent />
         <Row label="Paid" value={`${formatGen(stats?.total_paid_wei ?? "0")}`} />
       </div>
     </div>
