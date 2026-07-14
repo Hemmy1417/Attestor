@@ -161,10 +161,23 @@ export default function JobPage({ params }: { params: Promise<{ id: string }> })
                 <button
                   className="btn btn-danger"
                   disabled={isFinalizing}
-                  onClick={() => finalizeCancel({ jobId: job.job_id })}
+                  onClick={() => {
+                    if (!finalizeEligible) {
+                      toastError("Cancellation window still open", {
+                        description:
+                          `The worker can still submit proof. Finalize unlocks after ` +
+                          `${actionsRemaining} more contract action${actionsRemaining === 1 ? "" : "s"} ` +
+                          `(any Attestor transaction counts) — refresh the page if you believe it has already passed.`,
+                      });
+                      return;
+                    }
+                    finalizeCancel({ jobId: job.job_id });
+                  }}
                 >
                   {isFinalizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Ban className="w-4 h-4" />}
-                  Finalize &amp; reclaim {formatGen(job.bounty_wei)} GEN
+                  {finalizeEligible
+                    ? <>Finalize &amp; reclaim {formatGen(job.bounty_wei)} GEN</>
+                    : <>Finalize locked · {actionsRemaining} action{actionsRemaining === 1 ? "" : "s"} left</>}
                 </button>
                 <button
                   className="btn btn-ghost"
